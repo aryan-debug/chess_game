@@ -66,7 +66,7 @@ class Piece:
     def __init__(self, color, piece_type):
         self.color = color
         self.piece_type = piece_type
-        self.image = pygame.image.load(f'{self.color}_{self.piece_type}.png')
+        self.image = pygame.image.load(f'piece_images\\{self.color}_{self.piece_type}.png')
 
     def draw(self, x, y):
         screen.blit(self.image, (x, y))
@@ -105,14 +105,26 @@ class Knight(Piece):
     def __init__(self, color):
         self.piece_type = 'knight'
         super().__init__(color, self.piece_type)
+
     def generated_valid_move(self, previous_y, previous_x):
-        pass
+        knight_moves = [(-2,-1),(-2,1),(-1,-2),(-1,2),(1,-2),(1,2),(2,-1),(2,1)]
+        valid_moves_list = []
+        for row, col in knight_moves:
+            try:
+                if actual_board[previous_y + row][previous_x + col] == None or actual_board[previous_y + row][previous_x + col] != self.color:
+                    valid_moves_list.append((previous_y + row,previous_x + col))
+            except IndexError:
+                pass
+        return valid_moves_list
 
 class Bishop(Piece):
     def __init__(self, color):
         self.piece_type = 'bishop'
         super().__init__(color, self.piece_type)
-        
+
+    def generated_valid_move(self, previous_y, previous_x):
+        pass
+
 class Rook(Piece):
     def __init__(self,color):
         self.piece_type = 'rook'
