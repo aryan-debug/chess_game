@@ -122,7 +122,7 @@ class Bishop(Piece):
         self.piece_type = 'bishop'
         super().__init__(color, self.piece_type)
 
-    def generated_valid_move(self, previous_y, previous_x, new_y, new_x):
+    def generated_valid_move(self, previous_y, previous_x):
         valid_moves_list = []
         bishop_moves = [(-1,-1),(-1,1),(1,-1),(1,1)]
         for row, col in bishop_moves:
@@ -168,7 +168,7 @@ while 1:
                 x,y = event.pos
                 new_x, new_y = x//100,y//100
                 print(previous_y,previous_x)
-                if (new_y,new_x) in current_piece.generated_valid_move(previous_y, previous_x, new_y, new_x):
+                if (new_y,new_x) in current_piece.generated_valid_move(previous_y, previous_x):
                     actual_board[new_y][new_x] = current_piece
                     actual_board[previous_y][previous_x] = None
                     board.draw_board()
