@@ -77,7 +77,7 @@ class Pawn(Piece):
         self.first_move = True
         super().__init__(color,self.piece_type)
 
-    def generated_valid_move(self, previous_y, previous_x):
+    def generated_valid_move(self, previous_y, previous_x, new_y, new_x):
         offset = {"black":1,"white":-1}
         valid_moves_list = []
         #check for first move
@@ -106,7 +106,7 @@ class Knight(Piece):
         self.piece_type = 'knight'
         super().__init__(color, self.piece_type)
 
-    def generated_valid_move(self, previous_y, previous_x):
+    def generated_valid_move(self, previous_y, previous_x, new_y, new_x):
         knight_moves = [(-2,-1),(-2,1),(-1,-2),(-1,2),(1,-2),(1,2),(2,-1),(2,1)]
         valid_moves_list = []
         for row, col in knight_moves:
@@ -122,8 +122,16 @@ class Bishop(Piece):
         self.piece_type = 'bishop'
         super().__init__(color, self.piece_type)
 
-    def generated_valid_move(self, previous_y, previous_x):
-        pass
+    def generated_valid_move(self, previous_y, previous_x, new_y, new_x):
+        valid_moves_list = []
+        bishop_moves = [(-1,-1),(-1,1),(1,-1),(1,1)]
+        for row, col in bishop_moves:
+            offset = 1
+            while -1 < previous_y + row * offset <8 and -1 < previous_x + col * offset <8 and (actual_board[previous_y + row*offset][previous_x + col * offset] == None or actual_board[previous_y + row*offset][previous_x + col * offset] != self.color):
+                valid_moves_list.append((previous_y + row*offset,previous_x + col * offset))
+                offset += 1
+        return valid_moves_list
+        
 
 class Rook(Piece):
     def __init__(self,color):
@@ -159,8 +167,8 @@ while 1:
             if current_piece != None and board.move_color == current_piece.color:
                 x,y = event.pos
                 new_x, new_y = x//100,y//100
-                print(new_y,new_x)
-                if (new_y,new_x) in current_piece.generated_valid_move(previous_y, previous_x):
+                print(previous_y,previous_x)
+                if (new_y,new_x) in current_piece.generated_valid_move(previous_y, previous_x, new_y, new_x):
                     actual_board[new_y][new_x] = current_piece
                     actual_board[previous_y][previous_x] = None
                     board.draw_board()
