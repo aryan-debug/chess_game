@@ -77,7 +77,7 @@ class Pawn(Piece):
         self.first_move = True
         super().__init__(color,self.piece_type)
 
-    def generated_valid_move(self, previous_y, previous_x, new_y, new_x):
+    def generated_valid_move(self, previous_y, previous_x):
         offset = {"black":1,"white":-1}
         valid_moves_list = []
         #check for first move
@@ -98,7 +98,6 @@ class Pawn(Piece):
         if actual_board[previous_y + offset[self.color]][previous_x-1]:
             if actual_board[previous_y + offset[self.color]][previous_x-1].color != self.color:
                     valid_moves_list.append((previous_y+offset[self.color],previous_x-1))
-        print(valid_moves_list)
         return valid_moves_list
     
 class Knight(Piece):
@@ -106,12 +105,12 @@ class Knight(Piece):
         self.piece_type = 'knight'
         super().__init__(color, self.piece_type)
 
-    def generated_valid_move(self, previous_y, previous_x, new_y, new_x):
+    def generated_valid_move(self, previous_y, previous_x):
         knight_moves = [(-2,-1),(-2,1),(-1,-2),(-1,2),(1,-2),(1,2),(2,-1),(2,1)]
         valid_moves_list = []
         for row, col in knight_moves:
             try:
-                if actual_board[previous_y + row][previous_x + col] == None or actual_board[previous_y + row][previous_x + col] != self.color:
+                if actual_board[previous_y + row][previous_x + col] == None and actual_board[previous_y + row][previous_x + col] != self.color:
                     valid_moves_list.append((previous_y + row,previous_x + col))
             except IndexError:
                 pass
@@ -127,7 +126,7 @@ class Bishop(Piece):
         bishop_moves = [(-1,-1),(-1,1),(1,-1),(1,1)]
         for row, col in bishop_moves:
             offset = 1
-            while -1 < previous_y + row * offset <8 and -1 < previous_x + col * offset <8 and (actual_board[previous_y + row*offset][previous_x + col * offset] == None or actual_board[previous_y + row*offset][previous_x + col * offset] != self.color):
+            while -1 < previous_y + row * offset <8 and -1 < previous_x + col * offset <8 and (actual_board[previous_y + row*offset][previous_x + col * offset] == None and actual_board[previous_y + row*offset][previous_x + col * offset] != self.color):
                 valid_moves_list.append((previous_y + row*offset,previous_x + col * offset))
                 offset += 1
         return valid_moves_list
@@ -137,16 +136,53 @@ class Rook(Piece):
     def __init__(self,color):
         self.piece_type = 'rook'
         super().__init__(color, self.piece_type)
+    
+    def generated_valid_move(self,previous_y,previous_x):
+        valid_moves_list = []
+        rook_moves = [(0,1),(0,-1),(1,0),(-1,0)]
+        for row, col in rook_moves:
+            current_x, current_y = col, row
+            while -1 < previous_y + current_y < 8 and -1 < previous_x + current_x < 8 and (actual_board[previous_y + current_y][previous_x + current_x] == None and actual_board[previous_y + current_y][previous_x + current_x] != self.color):
+                valid_moves_list.append((previous_y + current_y,previous_x + current_x))
+                current_x += col
+                current_y += row
+        return valid_moves_list
+
 
 class Queen(Piece):
     def  __init__(self, color):
         self.piece_type = "queen"
         super().__init__(color,self.piece_type)
+    def generated_valid_move(self,previous_y,previous_x):
+        valid_moves_list = []
+        rook_moves = [(0,1),(0,-1),(1,0),(-1,0)]
+        bishop_moves = [(-1,-1),(-1,1),(1,-1),(1,1)]
+        for row, col in rook_moves:
+            current_x, current_y = col, row
+            while -1 < previous_y + current_y < 8 and -1 < previous_x + current_x < 8 and (actual_board[previous_y + current_y][previous_x + current_x] == None and actual_board[previous_y + current_y][previous_x + current_x] != self.color):
+                valid_moves_list.append((previous_y + current_y,previous_x + current_x))
+                current_x += col
+                current_y += row
+        for row, col in bishop_moves:
+            offset = 1
+            while -1 < previous_y + row * offset <8 and -1 < previous_x + col * offset <8 and (actual_board[previous_y + row*offset][previous_x + col * offset] == None and actual_board[previous_y + row*offset][previous_x + col * offset] != self.color):
+                valid_moves_list.append((previous_y + row*offset,previous_x + col * offset))
+                offset += 1
+        return valid_moves_list
+        
 
 class King(Piece):
     def __init__(self, color):
         self.piece_type = 'king'
         super().__init__(color, self.piece_type)
+    
+    def generated_valid_move(self, previous_y, previous_x):
+        valid_moves_list = []
+        king_moves = [(0,1),(0,-1),(1,0),(-1,0),(-1,-1),(-1,1),(1,-1),(1,1)]
+        for row, col in king_moves:
+            if -1 < previous_y + col < 8 and -1 < previous_x + row < 8 and actual_board[previous_y + col][previous_x + row] != self.color:
+                valid_moves_list.append((previous_y + col, previous_x + row))
+        return valid_moves_list
 
 board = Board(RANKS,FILES, RECT_WIDTH, RECT_HEIGHT)
 board.draw_board()
