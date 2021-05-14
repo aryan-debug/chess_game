@@ -62,6 +62,27 @@ class Board:
             for y, position in enumerate(row):
                 if position:
                     position.draw(y*100,x*100)
+                
+    def is_checked(self):
+        king_position = []
+        king_moves = [(-1,-1),(-1,1),(1,-1),(1,1)]
+        pieces_on = []
+        for rank in range(RANKS):
+            for file in range(FILES):
+                if isinstance(actual_board[rank][file],King):
+                    king_position.append((rank,file))
+        for row,col in king_position:
+            for x,y in king_moves:
+                offset = 1
+                while -1 < row+x*offset < 8 and -1 < col+y*offset < 8 and (actual_board[row+x*offset][col+y*offset] == None or actual_board[row][col].color!=actual_board[row+x*offset][col+y*offset].color):
+                    pieces_on.append((row+x*offset,col+y*offset))
+                    offset+=1
+        for x,y in pieces_on:
+            if actual_board[x][y] != None:
+                print("you are in check")
+
+
+                    
 class Piece:
     def __init__(self, color, piece_type):
         self.color = color
@@ -75,6 +96,7 @@ class Pawn(Piece):
     def __init__(self,color):
         self.piece_type = "pawn"
         self.first_move = True
+        self.has_moved = False
         super().__init__(color,self.piece_type)
 
     def generated_valid_move(self, previous_y, previous_x):
@@ -83,21 +105,27 @@ class Pawn(Piece):
         #check for first move
         if self.first_move:
             valid_moves_list.append((previous_y + offset[self.color] * 2, previous_x))
+            self.has_moved = True
+        #check if pawn has moved
+        if self.has_moved:
             self.first_move = False
         #check for piece on front
         if actual_board[previous_y + offset[self.color]][previous_x] == None:
             valid_moves_list.append((previous_y + offset[self.color],previous_x))
+            self.has_moved = True
         #check for piece on right side
         try:
             if actual_board[previous_y + offset[self.color]][previous_x+1]:
                 if actual_board[previous_y + offset[self.color]][previous_x+1].color != self.color:
                         valid_moves_list.append((previous_y + offset[self.color],previous_x+1))
+                        self.has_moved = True
         except IndexError:
             pass
         #check for piece on left side
         if actual_board[previous_y + offset[self.color]][previous_x-1]:
             if actual_board[previous_y + offset[self.color]][previous_x-1].color != self.color:
                     valid_moves_list.append((previous_y+offset[self.color],previous_x-1))
+                    self.has_moved = True
         return valid_moves_list
     
 class Knight(Piece):
@@ -126,7 +154,7 @@ class Bishop(Piece):
         bishop_moves = [(-1,-1),(-1,1),(1,-1),(1,1)]
         for row, col in bishop_moves:
             offset = 1
-            while -1 < previous_y + row * offset <8 and -1 < previous_x + col * offset <8 and (actual_board[previous_y + row*offset][previous_x + col * offset] == None and actual_board[previous_y + row*offset][previous_x + col * offset] != self.color):
+            while -1 < previous_y + row * offset <8 and -1 < previous_x + col * offset <8 and (actual_board[previous_y + row*offset][previous_x + col * offset] == None or actual_board[previous_y + row*offset][previous_x + col * offset].color != self.color):
                 valid_moves_list.append((previous_y + row*offset,previous_x + col * offset))
                 offset += 1
         return valid_moves_list
@@ -142,7 +170,7 @@ class Rook(Piece):
         rook_moves = [(0,1),(0,-1),(1,0),(-1,0)]
         for row, col in rook_moves:
             current_x, current_y = col, row
-            while -1 < previous_y + current_y < 8 and -1 < previous_x + current_x < 8 and (actual_board[previous_y + current_y][previous_x + current_x] == None and actual_board[previous_y + current_y][previous_x + current_x] != self.color):
+            while -1 < previous_y + current_y < 8 and -1 < previous_x + current_x < 8 and (actual_board[previous_y + current_y][previous_x + current_x] == None and actual_board[previous_y + current_y][previous_x + current_x].color != self.color):
                 valid_moves_list.append((previous_y + current_y,previous_x + current_x))
                 current_x += col
                 current_y += row
@@ -203,13 +231,13 @@ while 1:
             if current_piece != None and board.move_color == current_piece.color:
                 x,y = event.pos
                 new_x, new_y = x//100,y//100
-                print(previous_y,previous_x)
                 if (new_y,new_x) in current_piece.generated_valid_move(previous_y, previous_x):
                     actual_board[new_y][new_x] = current_piece
                     actual_board[previous_y][previous_x] = None
                     board.draw_board()
                     board.draw_pieces(actual_board)
                     board.move_color = move_color_dict[current_piece.color]
+                    print(board.is_checked())
                     pygame.display.update()
 
             
