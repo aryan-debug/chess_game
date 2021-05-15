@@ -25,6 +25,9 @@ class Board:
         self.color_counter = 0
         self.actual_board = self.make_board(self.ranks, self.files)
         self.move_color = 'white'
+        self.white_king_pos = (7,4)
+        self.black_king_pos = (0,4)
+        self.king_pos_dict = {"white": self.black_king_pos, "black":self.white_king_pos}
 
     def draw_board(self):
         for rank in range(self.ranks):
@@ -64,22 +67,47 @@ class Board:
                     position.draw(y*100,x*100)
                 
     def is_checked(self):
-        king_position = []
-        king_moves = [(-1,-1),(-1,1),(1,-1),(1,1)]
-        pieces_on = []
-        for rank in range(RANKS):
-            for file in range(FILES):
-                if isinstance(actual_board[rank][file],King):
-                    king_position.append((rank,file))
-        for row,col in king_position:
-            for x,y in king_moves:
-                offset = 1
-                while -1 < row+x*offset < 8 and -1 < col+y*offset < 8 and (actual_board[row+x*offset][col+y*offset] == None or actual_board[row][col].color!=actual_board[row+x*offset][col+y*offset].color):
-                    pieces_on.append((row+x*offset,col+y*offset))
+        king_pos_x,king_pos_y = board.black_king_pos
+        king_diagonal_moves = [(-1,-1),(-1,1),(1,-1),(1,1)]
+        king_hor_moves = [(0,1),(0,-1),(1,0),(-1,0)]
+        king_knight_moves = [(-2,-1),(-2,1),(-1,-2),(-1,2),(1,-2),(1,2),(2,-1),(2,1)]
+        offset_1 = {"black":1,"white":-1}
+        pieces_on_hor = []
+        pieces_on_diagonal = []
+        for x,y in king_diagonal_moves:
+            offset = 1
+            while -1 < king_pos_x+x*offset < 8 and -1 < king_pos_y+y*offset < 8 and (actual_board[king_pos_x+x*offset][king_pos_y+y*offset] == None or actual_board[king_pos_x][king_pos_y].color != actual_board[king_pos_x+x*offset][king_pos_y+y*offset].color):
+                    pieces_on_diagonal.append((king_pos_x+x*offset,king_pos_y+y*offset))
                     offset+=1
-        for x,y in pieces_on:
-            if actual_board[x][y] != None:
+        for x,y in king_hor_moves:
+            current_x,current_y = x,y
+            while -1 < current_x+king_pos_x < 8 and -1 < current_y+king_pos_y < 8 and (actual_board[current_x + king_pos_x][current_y + king_pos_y] == None or actual_board[king_pos_x][king_pos_y].color != actual_board[current_x+king_pos_x][current_y+king_pos_y].color):
+                pieces_on_hor.append((king_pos_x+current_x,king_pos_y+current_y))
+                current_x += x
+                current_y += y
+        #checks by bishop or queen
+        for x,y in pieces_on_diagonal:
+            if actual_board[x][y] != None and (isinstance(actual_board[x][y],Bishop) or isinstance(actual_board[x][y],Queen)):
                 print("you are in check")
+        #checks by rook or queen
+        for x,y in pieces_on_hor:
+            if actual_board[x][y] != None and isinstance(actual_board[x][y],Rook) or isinstance(actual_board[x][y],Queen):
+                print('You are in check')
+        #checks by pawn
+        try:
+            if (actual_board[x][y].color != actual_board[x+offset_1[actual_board[x][y].color]][y-1].color or actual_board[x][y].color != actual_board[x+offset_1[actual_board[x][y].color]][y+1].color) and (isinstance(actual_board[x-1][y-1],Pawn) or isinstance(actual_board[x-1][y+1],Pawn)):
+                print("you are in check by pawn")
+        except AttributeError:
+            pass
+        #checks for knight
+        for x,y in king_knight_moves:
+            try:
+                if isinstance(actual_board[king_pos_x + x][king_pos_y + y], Knight) and actual_board[king_pos_x][king_pos_y].color != actual_board[king_pos_x + x][king_pos_y + y].color and -1 < x < 8 and -1 < y < 8:
+                    print("You are in check by knight")
+            except IndexError:
+                pass
+        king_pos_x,king_pos_y = board.king_pos_dict[board.move_color]
+
 
 
                     
@@ -138,7 +166,7 @@ class Knight(Piece):
         valid_moves_list = []
         for row, col in knight_moves:
             try:
-                if actual_board[previous_y + row][previous_x + col] == None and actual_board[previous_y + row][previous_x + col] != self.color:
+                if actual_board[previous_y + row][previous_x + col] == None or actual_board[previous_y + row][previous_x + col] != self.color:
                     valid_moves_list.append((previous_y + row,previous_x + col))
             except IndexError:
                 pass
@@ -170,7 +198,7 @@ class Rook(Piece):
         rook_moves = [(0,1),(0,-1),(1,0),(-1,0)]
         for row, col in rook_moves:
             current_x, current_y = col, row
-            while -1 < previous_y + current_y < 8 and -1 < previous_x + current_x < 8 and (actual_board[previous_y + current_y][previous_x + current_x] == None and actual_board[previous_y + current_y][previous_x + current_x].color != self.color):
+            while -1 < previous_y + current_y < 8 and -1 < previous_x + current_x < 8 and (actual_board[previous_y + current_y][previous_x + current_x] == None or actual_board[previous_y + current_y][previous_x + current_x].color != self.color):
                 valid_moves_list.append((previous_y + current_y,previous_x + current_x))
                 current_x += col
                 current_y += row
@@ -187,13 +215,13 @@ class Queen(Piece):
         bishop_moves = [(-1,-1),(-1,1),(1,-1),(1,1)]
         for row, col in rook_moves:
             current_x, current_y = col, row
-            while -1 < previous_y + current_y < 8 and -1 < previous_x + current_x < 8 and (actual_board[previous_y + current_y][previous_x + current_x] == None and actual_board[previous_y + current_y][previous_x + current_x] != self.color):
+            while -1 < previous_y + current_y < 8 and -1 < previous_x + current_x < 8 and (actual_board[previous_y + current_y][previous_x + current_x] == None or actual_board[previous_y + current_y][previous_x + current_x] != self.color):
                 valid_moves_list.append((previous_y + current_y,previous_x + current_x))
                 current_x += col
                 current_y += row
         for row, col in bishop_moves:
             offset = 1
-            while -1 < previous_y + row * offset <8 and -1 < previous_x + col * offset <8 and (actual_board[previous_y + row*offset][previous_x + col * offset] == None and actual_board[previous_y + row*offset][previous_x + col * offset] != self.color):
+            while -1 < previous_y + row * offset <8 and -1 < previous_x + col * offset <8 and (actual_board[previous_y + row*offset][previous_x + col * offset] == None or actual_board[previous_y + row*offset][previous_x + col * offset] != self.color):
                 valid_moves_list.append((previous_y + row*offset,previous_x + col * offset))
                 offset += 1
         return valid_moves_list
@@ -226,7 +254,6 @@ while 1:
             x,y = event.pos
             previous_x, previous_y = x//100,y//100
             current_piece = actual_board[previous_y][previous_x]
-        
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             if current_piece != None and board.move_color == current_piece.color:
                 x,y = event.pos
@@ -238,6 +265,10 @@ while 1:
                     board.draw_pieces(actual_board)
                     board.move_color = move_color_dict[current_piece.color]
                     print(board.is_checked())
+                    if isinstance(current_piece, King) and current_piece.color == "white":
+                        board.white_king_pos = (new_y,new_x)
+                    elif isinstance(current_piece, King) and current_piece.color == "black":
+                        board.black_king_pos = (new_y,new_x)
                     pygame.display.update()
 
             
