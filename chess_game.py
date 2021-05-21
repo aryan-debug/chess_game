@@ -198,6 +198,9 @@ class Bishop(Piece):
                 y_offset = previous_y + row * offset
                 x_offset = previous_x + col * offset
                 valid_moves_list.append((y_offset,x_offset))
+                if -1 < previous_y + row + row * offset <8 and -1 < previous_x + col + col * offset <8 and actual_board[previous_y + row + row * offset][previous_x + col + col * offset] != None and actual_board[previous_y + row + row * offset][previous_x + col + col * offset].color != self.color:
+                    valid_moves_list.append((previous_y + row + row * offset, previous_x + col + col * offset))
+                    break
                 offset += 1
         return valid_moves_list
         
@@ -212,8 +215,11 @@ class Rook(Piece):
         rook_moves = [(0,1),(0,-1),(1,0),(-1,0)]
         for row, col in rook_moves:
             current_x, current_y = col, row
-            while -1 < previous_y + current_y < 8 and -1 < previous_x + current_x < 8 and (actual_board[previous_y + current_y][previous_x + current_x] == None or actual_board[previous_y + current_y][previous_x + current_x].color != self.color):
+            while -1 < previous_y + current_y < 8 and -1 < previous_x + current_x < 8 and actual_board[previous_y + current_y][previous_x + current_x] == None:
                 valid_moves_list.append((previous_y + current_y,previous_x + current_x))
+                if -1 < previous_y + current_y + row< 8 and -1 < previous_x + current_x + col< 8 and actual_board[previous_y + current_y + row][previous_x + current_x + col] != None and actual_board[previous_y + current_y + row][previous_x + current_x + col].color != self.color:
+                    valid_moves_list.append((previous_y + current_y + row,previous_x + current_x + col))
+                    break
                 current_x += col
                 current_y += row
         return valid_moves_list
