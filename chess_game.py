@@ -116,8 +116,7 @@ class Board:
             except:
                 pass
         king_pos_x,king_pos_y = board.king_pos_dict[board.move_color]
-        
-
+        return False
 
 
                     
@@ -244,6 +243,8 @@ class Queen(Piece):
                 current_y += row
         for row, col in bishop_moves:
             offset = 1
+            if -1 < previous_y + row * offset <8 and -1 < previous_x + col * offset <8 and actual_board[previous_y + row * offset][previous_x + col * offset] != None and actual_board[previous_y + row * offset][previous_x + col * offset].color != self.color:
+                    valid_moves_list.append((previous_y + row * offset, previous_x + col * offset))
             while -1 < previous_y + row * offset <8 and -1 < previous_x + col * offset <8 and actual_board[previous_y + row*offset][previous_x + col * offset] == None:
                 valid_moves_list.append((previous_y + row*offset,previous_x + col * offset))
                 if -1 < previous_y + row + row * offset <8 and -1 < previous_x + col + col * offset <8 and actual_board[previous_y + row + row * offset][previous_x + col + col * offset] != None and actual_board[previous_y + row + row * offset][previous_x + col + col * offset].color != self.color:
@@ -286,14 +287,24 @@ while 1:
             if current_piece != None and board.move_color == current_piece.color:
                 x,y = event.pos
                 new_x, new_y = x//100,y//100
-                fake_board_copy = actual_board[:]
-                fake_board_copy[previous_y][previous_x] = actual_board[new_y][new_x]
-                if fake_board.is_checked():
-                    pass
-                if current_piece not in board.pinned_pieces:
-                    if (new_y,new_x) in current_piece.generated_valid_move(previous_y, previous_x):
-                        actual_board[new_y][new_x] = current_piece
-                        actual_board[previous_y][previous_x] = None
+                print(current_piece.generated_valid_move(previous_y,previous_x))
+                if (new_y,new_x) in current_piece.generated_valid_move(previous_y, previous_x):
+                    can_capture = False
+                    if fake_board_copy[new_y][new_x]!=None:
+                        print("yes")
+                        can_capture = True
+                    fake_board_copy[new_y][new_x] = current_piece
+                    fake_board_copy[previous_y][previous_x] = None
+                    if fake_board.is_checked():
+                        if can_capture:
+                            actual_board[new_y][new_x] = current_piece
+                            actual_board[previous_y][previous_x] = None
+                        else:
+                            board.pinned_pieces.append(current_piece)
+                            actual_board[previous_y][previous_x] = current_piece
+                            actual_board[new_y][new_x] = None
+                    fake_board_copy = actual_board[:]
+                    if current_piece not in board.pinned_pieces:
                         board.draw_board()
                         board.draw_pieces(actual_board)
                         board.move_color = move_color_dict[current_piece.color]
@@ -303,7 +314,11 @@ while 1:
                             board.white_king_pos = (new_y,new_x)
                         elif isinstance(current_piece, King) and current_piece.color == "black":
                             board.black_king_pos = (new_y,new_x)
-                pygame.display.update()
+                        pygame.display.update()     
+                    board.pinned_pieces = []          
+                        
+                    
+
 
             
   
