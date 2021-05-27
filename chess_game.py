@@ -27,7 +27,7 @@ class Board:
         self.move_color = 'white'
         self.white_king_pos = (7,4)
         self.black_king_pos = (0,4)
-        self.king_pos_dict = {"white": self.black_king_pos, "black":self.white_king_pos}
+        self.king_pos_dict = {"white": self.white_king_pos, "black":self.black_king_pos}
         self.pinned_pieces = []
 
     def draw_board(self):
@@ -67,8 +67,8 @@ class Board:
                 if position:
                     position.draw(y*100,x*100)
                 
-    def is_checked(self):
-        king_pos_x,king_pos_y = board.black_king_pos
+    def is_checked(self, king_position, king_color):
+        king_pos_y,king_pos_x = king_position
         king_diagonal_moves = [(-1,-1),(-1,1),(1,-1),(1,1)]
         king_hor_moves = [(0,1),(0,-1),(1,0),(-1,0)]
         king_knight_moves = [(-2,-1),(-2,1),(-1,-2),(-1,2),(1,-2),(1,2),(2,-1),(2,1)]
@@ -76,24 +76,35 @@ class Board:
         pieces_on_hor = []
         pieces_on_diagonal = []
         #check for diagonal check
-        for x,y in king_diagonal_moves:
-            offset = 1
-            try:
-                while -1 < king_pos_x+x*offset < 8 and -1 < king_pos_y+y*offset < 8 and (actual_board[king_pos_x+x*offset][king_pos_y+y*offset] == None or actual_board[king_pos_x][king_pos_y].color != actual_board[king_pos_x+x*offset][king_pos_y+y*offset].color):
-                    pieces_on_diagonal.append((king_pos_x+x*offset,king_pos_y+y*offset))
-                    offset+=1
-            except AttributeError:
-                pass
+        for row, col in king_diagonal_moves:
+            current_y = king_pos_y + row
+            current_x =  king_pos_x + col
+            for x in range(0,RANKS):
+                if -1 < current_y < RANKS and -1 < current_x < RANKS:
+                    if actual_board[current_y][current_x] != None and actual_board[current_y][current_x].color != king_color:
+                        pieces_on_diagonal.append((current_y, current_x))
+                        break
+                    if actual_board[current_y][current_x] == None:
+                        pieces_on_diagonal.append((current_y, current_x))
+                    else:
+                        break
+                current_x += col
+                current_y +=  row
         #check for horizontal and vertical checks
-        for x,y in king_hor_moves:
-            current_x,current_y = x,y
-            try:
-                while -1 < current_x+king_pos_x < 8 and -1 < current_y+king_pos_y < 8 and (actual_board[current_x + king_pos_x][current_y + king_pos_y] == None or actual_board[king_pos_x][king_pos_y].color != actual_board[current_x+king_pos_x][current_y+king_pos_y].color):
-                    pieces_on_hor.append((king_pos_x+current_x,king_pos_y+current_y))
-                    current_x += x
-                    current_y += y
-            except AttributeError:
-                pass
+        for row, col in king_hor_moves:
+            current_y = king_pos_y + row
+            current_x =  king_pos_x + col
+            for x in range(0,RANKS):
+                if -1 < current_y < RANKS and -1 < current_x < RANKS:
+                    if actual_board[current_y][current_x] != None and actual_board[current_y][current_x].color != king_color:
+                        pieces_on_diagonal.append((current_y, current_x))
+                        break
+                    if actual_board[current_y][current_x] == None:
+                        pieces_on_diagonal.append((current_y, current_x))
+                    else:
+                        break
+                current_x += col
+                current_y +=  row
         #checks by bishop or queen
         for x,y in pieces_on_diagonal:
             if actual_board[x][y] != None and (isinstance(actual_board[x][y],Bishop) or isinstance(actual_board[x][y],Queen)):
@@ -103,19 +114,20 @@ class Board:
             if actual_board[x][y] != None and isinstance(actual_board[x][y],Rook) or isinstance(actual_board[x][y],Queen):
                 return True
         #checks by pawn
+        '''
         try:
-            if (actual_board[x][y].color != actual_board[x+offset_1[actual_board[x][y].color]][y-1].color or actual_board[x][y].color != actual_board[x+offset_1[actual_board[x][y].color]][y+1].color) and (isinstance(actual_board[x-1][y-1],Pawn) or isinstance(actual_board[x-1][y+1],Pawn)):
-                return True
+            if (actual_board[x][y].color != actual_board[y+offset_1[actual_board[x][y].color]][y-1].color or actual_board[x][y].color != actual_board[x+offset_1[actual_board[x][y].color]][y+1].color) and (isinstance(actual_board[x-1][y-1],Pawn) or isinstance(actual_board[x-1][y+1],Pawn)):
+                return True, king_color
         except AttributeError:
             pass
+        '''
         #checks for knight
         for x,y in king_knight_moves:
             try:
-                if isinstance(actual_board[king_pos_x + x][king_pos_y + y], Knight) and actual_board[king_pos_x][king_pos_y].color != actual_board[king_pos_x + x][king_pos_y + y].color and -1 < x < 8 and -1 < y < 8:
+                if isinstance(actual_board[king_pos_y + x][king_pos_x + y], Knight) and king_color != actual_board[king_pos_y + x][king_pos_x + y].color and -1 < x < 8 and -1 < y < 8:
                     return True
             except:
                 pass
-        king_pos_x,king_pos_y = board.king_pos_dict[board.move_color]
         return False
 
 
@@ -133,6 +145,7 @@ class Pawn(Piece):
     def __init__(self,color):
         self.piece_type = "pawn"
         self.first_move = True
+
         super().__init__(color,self.piece_type)
 
     def generated_valid_move(self, previous_y, previous_x):
@@ -260,19 +273,41 @@ class King(Piece):
         self.piece_type = 'king'
         super().__init__(color, self.piece_type)
     
-    def generated_valid_move(self, previous_y, previous_x):
-        valid_moves_list = []
+    def generated_moves(self, previous_y, previous_x):
+        moves_list = []
         king_moves = [(0,1),(0,-1),(1,0),(-1,0),(-1,-1),(-1,1),(1,-1),(1,1)]
         for row, col in king_moves:
             current_y = previous_y + row
             current_x = previous_x + col
             if -1 < current_y < RANKS and -1 < current_x < RANKS:
-                print(current_y, current_x)
                 if actual_board[current_y][current_x] == None:
-                    valid_moves_list.append((current_y, current_x))
+                    moves_list.append((current_y, current_x))
                 if actual_board[current_y][current_x] != None and actual_board[current_y][current_x].color != self.color:
-                    valid_moves_list.append((current_y, current_x))
-        return valid_moves_list
+                    moves_list.append((current_y, current_x))
+        return moves_list
+
+    def generated_valid_move(self, previous_y, previous_x):
+        valid_moves = self.filtered_moves(actual_board)
+        return valid_moves
+
+    def filtered_moves(self, board):
+        king_valid_moves = self.generated_moves(previous_y, previous_x)
+        invalid_moves = []
+        for row in range(RANKS):
+            for col in range(FILES):
+                current_piece = board[row][col]
+                if current_piece != None and current_piece.color != self.color:
+                    if isinstance(current_piece, King):
+                        invalid_moves.append([*set(current_piece.generated_moves(row,col)).intersection(set(king_valid_moves))])
+                    else:
+                        invalid_moves.append([*set(current_piece.generated_valid_move(row,col)).intersection(set(king_valid_moves))])
+        for piece in invalid_moves:
+            if len(piece):
+                for moves in piece:
+                    if moves in king_valid_moves:
+                        king_valid_moves.remove(moves)
+        return king_valid_moves
+
 
 board = Board(RANKS,FILES, RECT_WIDTH, RECT_HEIGHT)
 fake_board = Board(RANKS,FILES, RECT_WIDTH, RECT_HEIGHT)
@@ -294,15 +329,13 @@ while 1:
             if current_piece != None and board.move_color == current_piece.color:
                 x,y = event.pos
                 new_x, new_y = x//100,y//100
-                print(current_piece.generated_valid_move(previous_y,previous_x))
                 if (new_y,new_x) in current_piece.generated_valid_move(previous_y, previous_x):
                     can_capture = False
-                    if fake_board_copy[new_y][new_x]!=None:
-                        print("yes")
+                    if fake_board_copy[new_y][new_x]!=None and fake_board_copy[new_y][new_x].color != current_piece.color:
                         can_capture = True
                     fake_board_copy[new_y][new_x] = current_piece
                     fake_board_copy[previous_y][previous_x] = None
-                    if fake_board.is_checked():
+                    if fake_board.is_checked(board.king_pos_dict[board.move_color], board.move_color):
                         if can_capture:
                             actual_board[new_y][new_x] = current_piece
                             actual_board[previous_y][previous_x] = None
