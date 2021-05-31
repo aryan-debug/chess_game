@@ -1,6 +1,6 @@
 import pygame
 import sys
-
+from copy import deepcopy
 pygame.init()
 
 RANKS = 8
@@ -13,6 +13,9 @@ screen = pygame.display.set_mode((SCREEN_WIDTH,SCREEN_HEIGHT))
 green_color = (118,150,86)
 white_color = (238,238,210)
 move_color_dict = {'white':'black','black':'white'}
+white_king_pos = (7,4)
+black_king_pos = (0,4)
+king_pos_dict = {"white": white_king_pos, "black": black_king_pos}
 
 class Board:
     def __init__(self,ranks, files, rect_width, rect_height):
@@ -25,9 +28,6 @@ class Board:
         self.color_counter = 0
         self.actual_board = self.make_board(self.ranks, self.files)
         self.move_color = 'white'
-        self.white_king_pos = (7,4)
-        self.black_king_pos = (0,4)
-        self.king_pos_dict = {"white": self.white_king_pos, "black":self.black_king_pos}
         self.pinned_pieces = []
 
     def draw_board(self):
@@ -67,7 +67,7 @@ class Board:
                 if position:
                     position.draw(y*100,x*100)
                 
-    def is_checked(self, king_position, king_color):
+    def is_checked(self, king_position, king_color, actual_board):
         king_pos_y,king_pos_x = king_position
         king_diagonal_moves = [(-1,-1),(-1,1),(1,-1),(1,1)]
         king_hor_moves = [(0,1),(0,-1),(1,0),(-1,0)]
@@ -130,7 +130,13 @@ class Board:
                 pass
         return False
 
-
+    def is_checkmated(self, king_color, actual_board):
+        king_pos_y, king_pos_x = king_pos_dict[king_color]
+        king = actual_board[king_pos_y][king_pos_x]
+        king_valid_moves = actual_board[king_pos_y][king_pos_x].filtered_moves(actual_board, king_color)
+        if self.is_checked((king_pos_y, king_pos_x), king_color, actual_board) and not len(king_valid_moves) and not can_capture:
+            pass
+            
                     
 class Piece:
     def __init__(self, color, piece_type):
@@ -287,11 +293,12 @@ class King(Piece):
         return moves_list
 
     def generated_valid_move(self, previous_y, previous_x):
-        valid_moves = self.filtered_moves(actual_board)
+        valid_moves = self.filtered_moves(actual_board, board.move_color)
         return valid_moves
 
-    def filtered_moves(self, board):
-        king_valid_moves = self.generated_moves(previous_y, previous_x)
+    def filtered_moves(self, board, color):
+        king_pos_y, king_pos_x = king_pos_dict[color]
+        king_valid_moves = self.generated_moves(king_pos_y, king_pos_x)
         invalid_moves = []
         for row in range(RANKS):
             for col in range(FILES):
@@ -310,10 +317,9 @@ class King(Piece):
 
 
 board = Board(RANKS,FILES, RECT_WIDTH, RECT_HEIGHT)
-fake_board = Board(RANKS,FILES, RECT_WIDTH, RECT_HEIGHT)
 board.draw_board()
 actual_board = board.make_board(RANKS,FILES)
-fake_board_copy = actual_board[:]
+fake_board_copy = [row[:] for row in actual_board]
 board.draw_pieces(actual_board)
 pygame.display.update()
 while 1:
@@ -331,19 +337,24 @@ while 1:
                 new_x, new_y = x//100,y//100
                 if (new_y,new_x) in current_piece.generated_valid_move(previous_y, previous_x):
                     can_capture = False
-                    if fake_board_copy[new_y][new_x]!=None and fake_board_copy[new_y][new_x].color != current_piece.color:
-                        can_capture = True
                     fake_board_copy[new_y][new_x] = current_piece
                     fake_board_copy[previous_y][previous_x] = None
-                    if fake_board.is_checked(board.king_pos_dict[board.move_color], board.move_color):
+                    if fake_board_copy[new_y][new_x]!=None and fake_board_copy[new_y][new_x].color != current_piece.color and not board.is_checked(board.king_pos_dict[board.move_color], move_color_dict[board.move_color]):
+                        can_capture = True
+                    if board.is_checked(king_pos_dict[board.move_color], board.move_color, fake_board_copy):
                         if can_capture:
-                            actual_board[new_y][new_x] = current_piece
-                            actual_board[previous_y][previous_x] = None
+                            fake_board_copy[new_y][new_x] = current_piece
+                            fake_board_copy[previous_y][previous_x] = None
                         else:
                             board.pinned_pieces.append(current_piece)
-                            actual_board[previous_y][previous_x] = current_piece
-                            actual_board[new_y][new_x] = None
-                    fake_board_copy = actual_board[:]
+                            fake_board_copy[previous_y][previous_x] = current_piece
+                            fake_board_copy[new_y][new_x] = actual_board[new_y][new_x]
+
+                    else:
+                        fake_board_copy[new_y][new_x] = current_piece
+                        fake_board_copy[previous_y][previous_x] = None
+                    actual_board = [row[:] for row in fake_board_copy]
+                    print(board.is_checkmated(move_color_dict[board.move_color], actual_board))
                     if current_piece not in board.pinned_pieces:
                         board.draw_board()
                         board.draw_pieces(actual_board)
@@ -351,8 +362,8 @@ while 1:
                         if isinstance(current_piece, Pawn):
                             current_piece.first_move = False
                         if isinstance(current_piece, King) and current_piece.color == "white":
-                            board.white_king_pos = (new_y,new_x)
+                            king_pos_dict["white"] = (new_y,new_x)
                         elif isinstance(current_piece, King) and current_piece.color == "black":
-                            board.black_king_pos = (new_y,new_x)
+                            king_pos_dict["black"] = (new_y,new_x)
                         pygame.display.update()     
                     board.pinned_pieces = []
