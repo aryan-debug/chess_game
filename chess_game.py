@@ -72,21 +72,36 @@ class Board:
             for row in range(RANKS):
                 for col in range(FILES):
                     current_piece = board[row][col]
-                    if current_piece != None and current_piece.color != board[king_pos_y][king_pos_x].color:
-                        if not isinstance(current_piece, King):
-                            if len(set(current_piece.generated_valid_move(row,col, board)).intersection({(king_pos_y, king_pos_x)})):
+                    try:
+                        if current_piece != None and current_piece.color != board[king_pos_y][king_pos_x].color:
+                            if not isinstance(current_piece, King):
+                                if len(set(current_piece.generated_valid_move(row,col, board)).intersection({(king_pos_y, king_pos_x)})):
+                                    return True, board[king_pos_y][king_pos_x].color, {*current_piece.generated_valid_move(row, col, board)}
+                    except AttributeError:
+                        pass
+                    
+        return False, board[king_pos_y][king_pos_x].color, {*current_piece.generated_valid_move(row, col,board)}
 
-                                return True, board[king_pos_y][king_pos_x].color
-        return False, board[king_pos_y][king_pos_x].color
-
-    def is_checkmated(self, king_color, board):
-        king_pos_y, king_pos_x = king_pos_dict[king_color]
-        king = board[king_pos_y][king_pos_x]
-        king_valid_moves = board[king_pos_y][king_pos_x].filtered_moves(board)
-        if not len(king_valid_moves):
-            pass
-    def can_be_blocked(self, king_color):
-        pass
+    def is_checkmated(self, king_color, piece_moves, king_moves):
+        if not len(king_moves) and not self.can_be_blocked(king_color,  fake_board_copy, piece_moves):
+            return True
+        return False
+    def can_be_blocked(self, king_color, board, piece_moves):
+        for row in range(RANKS):
+            for col in range(RANKS):
+                current_piece = board[row][col]
+                if current_piece != None and current_piece.color == king_color and not isinstance(current_piece, King):
+                    current_piece_moves = current_piece.generated_valid_move(row, col, board)
+                    for move_y, move_x in {*current_piece_moves}.intersection(piece_moves):
+                        board[move_y][move_x] = current_piece
+                        board[row][col] = None
+                        is_check = self.is_checked(board)[0]
+                        if not is_check:
+                            return True
+                        board[move_y][move_x] = None
+                        board[row][col] = current_piece
+        return False
+    def can_be_captured(self, king_color, board, piece_y, piece_x):
 class Piece:
     def __init__(self, color, piece_type):
         self.color = color
@@ -142,11 +157,8 @@ class Knight(Piece):
         for row, col in knight_moves:
             knight_move_y = previous_y + row
             knight_move_x = previous_x + col
-            try:
-                if board[knight_move_y][knight_move_x] == None or board[knight_move_y][knight_move_x].color != self.color:
-                    valid_moves_list.append((knight_move_y,knight_move_x))
-            except IndexError:
-                pass
+            if -1 < knight_move_y < RANKS and -1 < knight_move_x < RANKS and (board[knight_move_y][knight_move_x] == None or (board[knight_move_y][knight_move_x] != None and board[knight_move_y][knight_move_x].color != self.color)):
+                valid_moves_list.append((knight_move_y,knight_move_x))
         return valid_moves_list
 
 class Bishop(Piece):
@@ -242,12 +254,11 @@ class King(Piece):
         return moves_list
 
     def generated_valid_move(self, previous_y, previous_x, board):
-        valid_moves = self.filtered_moves(actual_board)
+        valid_moves = self.filtered_moves(board)
         return valid_moves
 
     def filtered_moves(self, a_board):
-        king_pos_y, king_pos_x = king_pos_dict[board.move_color]
-
+        king_pos_y, king_pos_x = king_pos_dict[move_color_dict[board.move_color]]
         king_valid_moves = self.generated_moves(king_pos_y, king_pos_x, a_board)
         invalid_moves = []
         for row in range(RANKS):
@@ -257,12 +268,13 @@ class King(Piece):
                     if isinstance(current_piece, King):
                         invalid_moves.append([*set(current_piece.generated_moves(row,col, a_board)).intersection(set(king_valid_moves))])
                     else:
-                        invalid_moves.append([*set(current_piece.generated_valid_move(row,col, a_board)).intersection(set(king_valid_moves))])
+                        invalid_moves.append({*current_piece.generated_valid_move(row,col, a_board)}.intersection({*king_valid_moves}))
         for piece in invalid_moves:
             if len(piece):
                 for moves in piece:
                     if moves in king_valid_moves:
                         king_valid_moves.remove(moves)
+
         return king_valid_moves
 
 
@@ -286,19 +298,19 @@ while 1:
                 x,y = event.pos
                 new_x, new_y = x//100,y//100
                 if (new_y,new_x) in current_piece.generated_valid_move(previous_y, previous_x,actual_board):
+                    fake_board_copy[new_y][new_x] = current_piece
+                    fake_board_copy[previous_y][previous_x] = None
                     if isinstance(current_piece, Pawn):
                             current_piece.first_move = False
                     if isinstance(current_piece, King) and current_piece.color == "white":
                         king_pos_dict["white"] = (new_y,new_x)
                     elif isinstance(current_piece, King) and current_piece.color == "black":
                         king_pos_dict["black"] = (new_y,new_x)
-                    fake_board_copy[new_y][new_x] = current_piece
-                    fake_board_copy[previous_y][previous_x] = None
-                    is_check, king_color = board.is_checked(fake_board_copy)
-                    if is_check and king_color == board.move_color:
-                        print(board.is_checkmated(king_color, actual_board))
-                        fake_board_copy = [row[:] for row in actual_board]
-                        continue
+                    is_check, king_color, piece_moves = board.is_checked(fake_board_copy)
+                    if is_check:
+                        if king_color == board.move_color:
+                            fake_board_copy = [row[:] for row in actual_board]
+                            continue
                     actual_board[new_y][new_x] = current_piece
                     actual_board[previous_y][previous_x] = None
                     fake_board_copy = [row[:] for row in actual_board]
@@ -306,5 +318,10 @@ while 1:
                         board.draw_board()
                         board.draw_pieces(actual_board)
                         board.move_color = move_color_dict[current_piece.color]
-                        pygame.display.update()     
+                        pygame.display.update()
+                        king_y, king_x = king_pos_dict[move_color_dict[board.move_color]]
+                        king_moves = actual_board[king_y][king_x].generated_valid_move(king_y, king_x, fake_board_copy)
+                        if board.is_checkmated(king_color, piece_moves, king_moves):
+                            print("yes")
+                            break 
                     board.pinned_pieces = []
