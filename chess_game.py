@@ -36,6 +36,7 @@ class Board:
                 if self.rect_pos_x >= SCREEN_WIDTH:
                     self.rect_pos_x = 0
                     self.rect_pos_y += self.rect_height
+                #switch colors
                 if self.color_counter % 2 == 0:
                     current_color = white_color
                 pygame.draw.rect(screen,current_color, pygame.Rect(self.rect_pos_x,self.rect_pos_y,self.rect_width,self.rect_width))
@@ -49,6 +50,7 @@ class Board:
         pygame.display.flip()
 
     def make_board(self,ranks,files):
+        #black pieces
         _2d_board = [[Rook("black"),Knight("black"),Bishop("black"),Queen("black"),King("black"),Bishop("black"),Knight("black"),Rook("black")],
         [Pawn("black"), Pawn("black"), Pawn("black"), Pawn("black"), Pawn("black"), Pawn("black"), Pawn("black"), Pawn("black")]]
 
@@ -56,7 +58,7 @@ class Board:
             _2d_board.append([])
             for file in range(self.files):
                 _2d_board[rank].append(None)
-
+        #white pieces
         _2d_board.append([Pawn("white"), Pawn("white"), Pawn("white"), Pawn("white"), Pawn("white"), Pawn("white"), Pawn("white"), Pawn("white")])
         _2d_board.append([Rook("white"),Knight("white"),Bishop("white"),Queen("white"),King("white"),Bishop("white"),Knight("white"),Rook("white")])
         return _2d_board
@@ -74,16 +76,19 @@ class Board:
         pygame.display.update()
                 
     def is_checked(self,board):
+        #go through king position and the whole board
         for king_pos_y,king_pos_x in king_pos_dict.values():
             for row in range(RANKS):
                 for col in range(FILES):
                     current_piece = board[row][col]
                     try:
+                        #pick pieces that are of opposite color
                         if current_piece != None and current_piece.color != board[king_pos_y][king_pos_x].color:
                             if isinstance(current_piece, King):
                                 if len({*current_piece.generated_moves(row,col,board)}.intersection({(king_pos_y, king_pos_x)})):
                                     return True, board[king_pos_y][king_pos_x].color, {*current_piece.generated_moves(row, col, board)}, {(row, col)}
                             else:
+                                #check if opposite colored piece's moves intersect with king's position
                                 if len({*current_piece.generated_valid_move(row,col, board)}.intersection({(king_pos_y, king_pos_x)})):
                                     return True, board[king_pos_y][king_pos_x].color, {*current_piece.generated_valid_move(row, col, board)}, {(row, col)}
                     except AttributeError:
@@ -99,42 +104,43 @@ class Board:
         for row in range(RANKS):
             for col in range(RANKS):
                 current_piece = board_copy[row][col]
+                #pick same colored pieces
                 if current_piece != None and current_piece.color == king_color and not isinstance(current_piece, King):
                     current_piece_moves = current_piece.generated_valid_move(row, col, board_copy)
+                    #moves that intersect with the piece that gives a check
                     for move_y, move_x in {*current_piece_moves}.intersection(piece_moves):
+                        #play the move on fake board
                         board_copy[move_y][move_x] = current_piece
                         board_copy[row][col] = None
+                        #check if it is a check
                         is_check = self.is_checked(board_copy)[0]
                         if not is_check:
+                            #reset the board
                             board_copy = [row[:] for row in board]
                             return True
+                        #reset the board
                         board_copy = [row[:] for row in board]
         return False
     def can_be_captured(self, king_color, board, piece_y_x):
         for row in range(RANKS):
             for col in range(RANKS):
                 current_piece = board[row][col]
+                #same colored pieces
                 if current_piece != None and current_piece.color == king_color :
                     current_piece_moves = current_piece.generated_valid_move(row, col, board)
+                    #same colored pieces that intersect with the piece that gives the check
                     for move_y, move_x in {*current_piece_moves}.intersection(piece_y_x):
+                        #play the move
                         board[move_y][move_x] = current_piece
                         board[row][col] = None
+                        #check if it is still check
                         is_check = self.is_checked(board)[0]
                         if not is_check:
+                            #reset the board
                             board = [row[:] for row in fake_board]
                             return True
                         board = [row[:] for row in fake_board]
         return False
-    
-    def generate_opposite_piece_moves(board):
-        moves_list = []
-        for row in range(RANKS):
-            for col in range(RANKS):
-                current_piece = board[row][col]
-                if current_piece != None and current_piece.color == king_color and not isinstance(current_piece, King):
-                    current_piece_moves = current_piece.generated_valid_move(row, col, board)
-                    moves_list.append(current_piece_moves)
-        return moves_list
 
 class Piece:
     def __init__(self, color, piece_type):
@@ -149,7 +155,6 @@ class Pawn(Piece):
     def __init__(self,color):
         self.piece_type = "pawn"
         self.first_move = True
-
         super().__init__(color,self.piece_type)
 
     def generated_valid_move(self, previous_y, previous_x, board):
@@ -191,6 +196,7 @@ class Knight(Piece):
         for row, col in knight_moves:
             knight_move_y = previous_y + row
             knight_move_x = previous_x + col
+            #check if the move is going out of the board or a square is free or it can capture a piece
             if -1 < knight_move_y < RANKS and -1 < knight_move_x < RANKS and (board[knight_move_y][knight_move_x] == None or (board[knight_move_y][knight_move_x] != None and board[knight_move_y][knight_move_x].color != self.color)):
                 valid_moves_list.append((knight_move_y,knight_move_x))
         return valid_moves_list
@@ -207,10 +213,13 @@ class Bishop(Piece):
             current_y = previous_y + row
             current_x =  previous_x + col
             for x in range(0,RANKS):
+                #check if the move is outside the board
                 if -1 < current_y < RANKS and -1 < current_x < RANKS:
+                    #check for captures
                     if board[current_y][current_x] != None and board[current_y][current_x].color != self.color:
                         valid_moves_list.append((current_y, current_x))
                         break
+                    #check for empty squares
                     if board[current_y][current_x] == None:
                         valid_moves_list.append((current_y, current_x))
                     else:
@@ -232,10 +241,13 @@ class Rook(Piece):
             current_y = previous_y + row
             current_x = previous_x + col
             for x in range(0, RANKS):
+                #check if the move is outside the board
                 if -1 < current_y < RANKS and -1 < current_x < RANKS:
+                    #check for captures
                     if board[current_y][current_x] != None and board[current_y][current_x].color != self.color:
                         valid_moves_list.append((current_y, current_x))
                         break
+                    #check for empty square
                     if board[current_y][current_x] == None:
                         valid_moves_list.append((current_y, current_x))
                     else: break
@@ -257,6 +269,7 @@ class Queen(Piece):
             current_y = previous_y + row
             current_x =  previous_x + col
             for x in range(0,RANKS):
+                #same stuff here
                 if -1 < current_y < RANKS and -1 < current_x < RANKS:
                     if board[current_y][current_x] != None and board[current_y][current_x].color != self.color:
                         valid_moves_list.append((current_y, current_x))
@@ -282,11 +295,13 @@ class King(Piece):
         for row, col in king_moves:
             current_y = previous_y + row
             current_x = previous_x + col
+            #same stuff here
             if -1 < current_y < RANKS and -1 < current_x < RANKS:
                 if board[current_y][current_x] == None:
                     moves_list.append((current_y, current_x))
                 if board[current_y][current_x] != None and board[current_y][current_x].color != self.color:
                     moves_list.append((current_y, current_x))
+        #returns all the moves except the pieces it cannot capture (i.e. same colored pieces)
         return moves_list
 
     def generated_valid_move(self, previous_y, previous_x, board):
@@ -321,24 +336,56 @@ class King(Piece):
         return valid_moves
 
     def short_castle(self,board, color, rook_x):
-        board_copy = [row[:] for row in board]
+        #get king's position
         king_pos_y, king_pos_x = king_pos_dict[color]
-        rook = board_copy[king_pos_y][rook_x]
-        pieces_in_between = not all(piece is None for piece in board_copy[king_pos_y][king_pos_x+1:-1])
-
-        if not pieces_in_between and not self.has_moved and not rook.has_moved:
-            board_copy[king_pos_y][king_pos_x + 2] = self
-            board_copy[king_pos_y][king_pos_x] = None
+        #get rook's position
+        rook = board[king_pos_y][rook_x]
+        #check for pieces between rook and bishop
+        pieces_in_between = not all(piece is None for piece in board[king_pos_y][king_pos_x+1:-1])
+        #check if these square are occupied by other piece's valid moves
+        check_squares = {(king_pos_y, king_pos_x+1), (king_pos_y, king_pos_x + 2)}
+        can_castle = True
+        #checking for it here
+        for row in range(RANKS):
+            for col in range(FILES):
+                current_piece = board[row][col]
+                if current_piece != None and current_piece.color != board[king_pos_y][king_pos_x].color:
+                    if isinstance(current_piece, King):
+                        if len({*current_piece.generated_moves(row,col,board)}.intersection(check_squares)):
+                            can_castle = False
+                    else:
+                        if len({*current_piece.generated_valid_move(row,col, board)}.intersection(check_squares)):
+                            can_castle = False
+        #check if pieces are not there and king or rook have not moved and "check_squares" are not occupied
+        if not pieces_in_between and not self.has_moved and not rook.has_moved and can_castle:
+            #move the king and rook
+            board[king_pos_y][king_pos_x + 2] = self
+            board[king_pos_y][king_pos_x] = None
+            #change king's position in the dictionary
             king_pos_dict[self.color] = (king_pos_y, king_pos_x + 2)
-            board_copy[king_pos_y][rook_x - 2] = rook
-            board_copy[king_pos_y][rook_x] = None
-        return board_copy
+            board[king_pos_y][rook_x - 2] = rook
+            board[king_pos_y][rook_x] = None
+        return board
     
     def long_castle(self, board, color, rook_x):
+        #basically, the same stuff here
+        board_copy = [row[:] for row in board]
         king_pos_y, king_pos_x = king_pos_dict[color]
         rook = board[king_pos_y][rook_x]
         pieces_in_between = not all(piece is None for piece in board[king_pos_y][-1:king_pos_x-1])
-        if not pieces_in_between and not self.has_moved and not rook.has_moved:
+        can_castle = True
+        check_squares = {(king_pos_y, king_pos_x - 1), (king_pos_y, king_pos_x - 2)}
+        for row in range(RANKS):
+            for col in range(FILES):
+                current_piece = board[row][col]
+                if current_piece != None and current_piece.color != board_copy[king_pos_y][king_pos_x].color:
+                    if isinstance(current_piece, King):
+                        if len({*current_piece.generated_moves(row,col,board_copy)}.intersection(check_squares)):
+                            can_castle = False
+                    else:
+                        if len({*current_piece.generated_valid_move(row,col, board_copy)}.intersection(check_squares)):
+                            can_castle = False
+        if not pieces_in_between and not self.has_moved and not rook.has_moved and can_castle:
             board[king_pos_y][king_pos_x - 2] = self
             board[king_pos_y][king_pos_x] = None
             king_pos_dict[self.color] = (king_pos_y, king_pos_x - 2)
@@ -366,17 +413,22 @@ while 1:
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             x,y = event.pos
             new_x, new_y = x//100,y//100
-            if isinstance(actual_board[previous_y][previous_x], King) and isinstance(actual_board[new_y][new_x], Rook) and not board.is_checked(actual_board):
+            check = board.is_checked(actual_board)[0]
+            #check if the pieces are king and rook and it is not in check
+            if isinstance(actual_board[previous_y][previous_x], King) and isinstance(actual_board[new_y][new_x], Rook) and not check:
                 if new_x == 7:
+                    #short castle
                     short_castle_board = current_piece.short_castle(actual_board, board.move_color, new_x)
                     actual_board = [row[:] for row in short_castle_board]
                     board.redraw_board()
                 if new_x == 0:
+                    #long_castle
                     long_castle_board = current_piece.long_castle(actual_board, board.move_color, new_x)
                     actual_board = [row[:] for row in long_castle_board]
                     board.redraw_board()
             elif current_piece != None and board.move_color == current_piece.color:
                 if (new_y,new_x) in current_piece.generated_valid_move(previous_y, previous_x,fake_board):
+                    #play move on fake board to verify it is valid
                     fake_board[new_y][new_x] = current_piece
                     fake_board[previous_y][previous_x] = None
                     if isinstance(current_piece, Pawn):
@@ -387,20 +439,25 @@ while 1:
                     if isinstance(current_piece, Rook):
                         current_piece.has_moved = True
                     is_check, king_color, piece_moves, piece_y_x = board.is_checked(fake_board)
+                    #check if king is in check
                     if is_check:
                         king_y, king_x = king_pos_dict[board.move_color]
                         king_moves = fake_board[king_y][king_x].generated_valid_move(king_y, king_x, fake_board)
+                        #if the king that is checked has the same color and the piece that moved, then it's an invalid move 
                         if king_color == board.move_color:
+                            #reset the board and continue
                             fake_board = [row[:] for row in actual_board]
                             continue
+                        #check if it is checkmated
                         if board.is_checkmated(king_color, piece_moves, king_moves, piece_y_x):
+                            #play the moves on the actual board
                             actual_board[new_y][new_x] = current_piece
                             actual_board[previous_y][previous_x] = None
                             board.redraw_board()
                             print(f"{king_color} is checkmated")
                             break
+                    #play move on actual board
                     actual_board[new_y][new_x] = current_piece
                     actual_board[previous_y][previous_x] = None
                     board.redraw_board()
                     fake_board = [row[:] for row in actual_board]
-                
