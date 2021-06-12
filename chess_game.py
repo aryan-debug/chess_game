@@ -2,7 +2,7 @@ import pygame
 import sys
 from copy import deepcopy
 pygame.init()
-
+import math
 RANKS = 8
 FILES = 8
 SCREEN_WIDTH = 800
@@ -29,25 +29,28 @@ class Board:
         self.actual_board = self.make_board(self.ranks, self.files)
         self.move_color = 'white'
         self.pinned_pieces = []
+        self.board = None
 
     def draw_board(self):
-        for rank in range(self.ranks):
-            for file in range(self.files):
-                if self.rect_pos_x >= SCREEN_WIDTH:
-                    self.rect_pos_x = 0
-                    self.rect_pos_y += self.rect_height
-                #switch colors
-                if self.color_counter % 2 == 0:
-                    current_color = white_color
-                pygame.draw.rect(screen,current_color, pygame.Rect(self.rect_pos_x,self.rect_pos_y,self.rect_width,self.rect_width))
-                self.rect_pos_x += self.rect_width
-                current_color = green_color
+        if self.board is None:
+            self.board = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
+            for rank in range(self.ranks):
+                for file in range(self.files):
+                    if self.rect_pos_x >= SCREEN_WIDTH:
+                        self.rect_pos_x = 0
+                        self.rect_pos_y += self.rect_height
+                    #switch colors
+                    if self.color_counter % 2 == 0:
+                        current_color = white_color
+                    pygame.draw.rect(self.board, current_color, pygame.Rect(self.rect_pos_x,self.rect_pos_y,self.rect_width,self.rect_width))
+                    self.rect_pos_x += self.rect_width
+                    current_color = green_color
+                    self.color_counter += 1
                 self.color_counter += 1
-            self.color_counter += 1
-        self.rect_pos_x = 0
-        self.rect_pos_y = 0
-        self.color_counter = 0
-        pygame.display.flip()
+            self.rect_pos_x = 0
+            self.rect_pos_y = 0
+            self.color_counter = 0
+        screen.blit(self.board, (0, 0))
 
     def make_board(self,ranks,files):
         #black pieces
@@ -66,15 +69,13 @@ class Board:
     def draw_pieces(self, board):
         for x, row in enumerate(board):
             for y, position in enumerate(row):
-                if position:
+                if position and not position.active and position.is_valid:
                     position.draw(y*100,x*100)
     
     def redraw_board(self):
         self.draw_board()
         self.draw_pieces(actual_board)
-        self.move_color = move_color_dict[current_piece.color]
-        pygame.display.update()
-                
+
     def is_checked(self,board):
         #go through king position and the whole board
         for king_pos_y,king_pos_x in king_pos_dict.values():
@@ -146,7 +147,9 @@ class Piece:
     def __init__(self, color, piece_type):
         self.color = color
         self.piece_type = piece_type
-        self.image = pygame.image.load(f'piece_images\\{self.color}_{self.piece_type}.png')
+        self.image = pygame.image.load(f'piece_images/{self.color}_{self.piece_type}.png')
+        self.active = False
+        self.is_valid = True
     #draw the piece
     def draw(self, x, y):
         screen.blit(self.image, (x, y))
@@ -394,14 +397,16 @@ class King(Piece):
         return board
             
 
-
 board = Board(RANKS,FILES, RECT_WIDTH, RECT_HEIGHT)
 board.draw_board()
 actual_board = board.make_board(RANKS,FILES)
 fake_board = [row[:] for row in actual_board]
 board.draw_pieces(actual_board)
-pygame.display.update()
+
+drag = False
+clock = pygame.time.Clock()
 while 1:
+    clock.tick(60)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.display.quit()
@@ -410,6 +415,8 @@ while 1:
             x,y = event.pos
             previous_x, previous_y = x//100,y//100
             current_piece = actual_board[previous_y][previous_x]
+            drag = True
+            current_piece.active = True
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             x,y = event.pos
             new_x, new_y = x//100,y//100
@@ -421,11 +428,13 @@ while 1:
                     short_castle_board = current_piece.short_castle(actual_board, board.move_color, new_x)
                     actual_board = [row[:] for row in short_castle_board]
                     board.redraw_board()
+                    drag = False
                 if new_x == 0:
                     #long_castle
                     long_castle_board = current_piece.long_castle(actual_board, board.move_color, new_x)
                     actual_board = [row[:] for row in long_castle_board]
                     board.redraw_board()
+                    drag = False
             elif current_piece != None and board.move_color == current_piece.color:
                 if (new_y,new_x) in current_piece.generated_valid_move(previous_y, previous_x,fake_board):
                     #play move on fake board to verify it is valid
@@ -443,7 +452,7 @@ while 1:
                     if is_check:
                         king_y, king_x = king_pos_dict[board.move_color]
                         king_moves = fake_board[king_y][king_x].generated_valid_move(king_y, king_x, fake_board)
-                        #if the king that is checked has the same color and the piece that moved, then it's an invalid move 
+                        #if the king that is checked has the same color and the piece that moved, then it's an invalid move
                         if king_color == board.move_color:
                             #reset the board and continue
                             fake_board = [row[:] for row in actual_board]
@@ -459,5 +468,13 @@ while 1:
                     #play move on actual board
                     actual_board[new_y][new_x] = current_piece
                     actual_board[previous_y][previous_x] = None
+                    board.move_color = move_color_dict[current_piece.color]
                     board.redraw_board()
                     fake_board = [row[:] for row in actual_board]
+                    drag = False
+        elif drag and current_piece:
+            mouse_x, mouse_y = pygame.mouse.get_pos()
+            board.redraw_board()
+            screen.blit(current_piece.image, [mouse_x-50, mouse_y-50])
+
+        pygame.display.update()
