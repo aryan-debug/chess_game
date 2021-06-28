@@ -2,7 +2,7 @@ import pygame
 import sys
 from copy import deepcopy
 pygame.init()
-import math
+
 RANKS = 8
 FILES = 8
 SCREEN_WIDTH = 800
@@ -29,28 +29,25 @@ class Board:
         self.actual_board = self.make_board(self.ranks, self.files)
         self.move_color = 'white'
         self.pinned_pieces = []
-        self.board = None
 
     def draw_board(self):
-        if self.board is None:
-            self.board = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT))
-            for rank in range(self.ranks):
-                for file in range(self.files):
-                    if self.rect_pos_x >= SCREEN_WIDTH:
-                        self.rect_pos_x = 0
-                        self.rect_pos_y += self.rect_height
-                    #switch colors
-                    if self.color_counter % 2 == 0:
-                        current_color = white_color
-                    pygame.draw.rect(self.board, current_color, pygame.Rect(self.rect_pos_x,self.rect_pos_y,self.rect_width,self.rect_width))
-                    self.rect_pos_x += self.rect_width
-                    current_color = green_color
-                    self.color_counter += 1
+        for rank in range(self.ranks):
+            for file in range(self.files):
+                if self.rect_pos_x >= SCREEN_WIDTH:
+                    self.rect_pos_x = 0
+                    self.rect_pos_y += self.rect_height
+                #switch colors
+                if self.color_counter % 2 == 0:
+                    current_color = white_color
+                pygame.draw.rect(screen,current_color, pygame.Rect(self.rect_pos_x,self.rect_pos_y,self.rect_width,self.rect_width))
+                self.rect_pos_x += self.rect_width
+                current_color = green_color
                 self.color_counter += 1
-            self.rect_pos_x = 0
-            self.rect_pos_y = 0
-            self.color_counter = 0
-        screen.blit(self.board, (0, 0))
+            self.color_counter += 1
+        self.rect_pos_x = 0
+        self.rect_pos_y = 0
+        self.color_counter = 0
+        pygame.display.flip()
 
     def make_board(self,ranks,files):
         #black pieces
@@ -69,15 +66,18 @@ class Board:
     def draw_pieces(self, board):
         for x, row in enumerate(board):
             for y, position in enumerate(row):
-                if position and not position.active and position.is_valid:
+                if position:
                     position.draw(y*100,x*100)
     
     def redraw_board(self):
         self.draw_board()
         self.draw_pieces(actual_board)
-
+        self.move_color = move_color_dict[current_piece.color]
+        pygame.display.update()
+                
     def is_checked(self,board):
         #go through king position and the whole board
+        
         for king_pos_y,king_pos_x in king_pos_dict.values():
             for row in range(RANKS):
                 for col in range(FILES):
@@ -97,6 +97,7 @@ class Board:
         return False, None, None, None
 
     def is_checkmated(self, king_color, piece_moves, king_moves, piece_y_x):
+        
         if not len(king_moves) and not self.can_be_blocked(king_color,  fake_board, piece_moves) and not self.can_be_captured(king_color, fake_board, piece_y_x):
             return True
         return False
@@ -147,9 +148,7 @@ class Piece:
     def __init__(self, color, piece_type):
         self.color = color
         self.piece_type = piece_type
-        self.image = pygame.image.load(f'piece_images/{self.color}_{self.piece_type}.png')
-        self.active = False
-        self.is_valid = True
+        self.image = pygame.image.load(f'piece_images\\{self.color}_{self.piece_type}.png')
     #draw the piece
     def draw(self, x, y):
         screen.blit(self.image, (x, y))
@@ -256,6 +255,7 @@ class Rook(Piece):
                     else: break
                 current_x += col
                 current_y +=  row
+        
         return valid_moves_list
                 
 
@@ -293,11 +293,12 @@ class King(Piece):
         super().__init__(color, self.piece_type)
     
     def generated_moves(self, previous_y, previous_x, board):
+        king_pos_y, king_pos_x = king_pos_dict[self.color]
         moves_list = []
         king_moves = [(0,1),(0,-1),(1,0),(-1,0),(-1,-1),(-1,1),(1,-1),(1,1)]
         for row, col in king_moves:
-            current_y = previous_y + row
-            current_x = previous_x + col
+            current_y = king_pos_y + row
+            current_x = king_pos_x + col
             #same stuff here
             if -1 < current_y < RANKS and -1 < current_x < RANKS:
                 if board[current_y][current_x] == None:
@@ -309,33 +310,37 @@ class King(Piece):
 
     def generated_valid_move(self, previous_y, previous_x, board):
         valid_moves = self.filtered_moves(board)
+        
         return valid_moves
 
     def filtered_moves(self, a_board):
         a_board_copy = [row[:] for row in a_board]
         #get opposite colored king's position
         king_pos_y, king_pos_x = king_pos_dict[board.move_color]
+        
+        
         king = a_board[king_pos_y][king_pos_x]
+        
         king_moves = self.generated_moves(king_pos_y, king_pos_x, a_board)
         valid_moves = []
         for move_y, move_x in king_moves:
             #move the king to that position
-            a_board_copy[move_y][move_x] = king
-            a_board_copy[king_pos_y][king_pos_x] = None
-            if self.color == "white":
-                king_pos_dict["white"] = (move_y,move_x)
-            if self.color == "black":
-                king_pos_dict["black"] = (move_y,move_x)
-            #check if it is a check
-            is_check = board.is_checked(a_board_copy)[0]
-            if not is_check:
-                valid_moves.append((move_y, move_x))
-            #reset the fake board
-            if self.color == "white":
-                king_pos_dict["white"] = (king_pos_y,king_pos_x)
-            if self.color == "black":
-                king_pos_dict["black"] = (king_pos_y,king_pos_x)
-            a_board_copy = [row[:] for row in a_board]
+            if a_board_copy[move_y][move_x] == None:
+                a_board_copy[move_y][move_x] = king
+                a_board_copy[king_pos_y][king_pos_x] = None
+                
+                #check if it is a check
+                king_pos_dict[king.color] = (move_y, move_x)
+
+                is_check = board.is_checked(a_board_copy)[0]
+                
+                king_pos_dict[king.color] = (king_pos_y, king_pos_x)
+                
+                if not is_check:
+                    valid_moves.append((move_y, move_x))
+                #reset the fake board
+                a_board_copy = [row[:] for row in a_board]
+        
         return valid_moves
 
     def short_castle(self,board, color, rook_x):
@@ -397,16 +402,14 @@ class King(Piece):
         return board
             
 
+
 board = Board(RANKS,FILES, RECT_WIDTH, RECT_HEIGHT)
 board.draw_board()
 actual_board = board.make_board(RANKS,FILES)
 fake_board = [row[:] for row in actual_board]
 board.draw_pieces(actual_board)
-
-drag = False
-clock = pygame.time.Clock()
+pygame.display.update()
 while 1:
-    clock.tick(60)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.display.quit()
@@ -415,8 +418,6 @@ while 1:
             x,y = event.pos
             previous_x, previous_y = x//100,y//100
             current_piece = actual_board[previous_y][previous_x]
-            drag = True
-            current_piece.active = True
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             x,y = event.pos
             new_x, new_y = x//100,y//100
@@ -428,13 +429,11 @@ while 1:
                     short_castle_board = current_piece.short_castle(actual_board, board.move_color, new_x)
                     actual_board = [row[:] for row in short_castle_board]
                     board.redraw_board()
-                    drag = False
                 if new_x == 0:
                     #long_castle
                     long_castle_board = current_piece.long_castle(actual_board, board.move_color, new_x)
                     actual_board = [row[:] for row in long_castle_board]
                     board.redraw_board()
-                    drag = False
             elif current_piece != None and board.move_color == current_piece.color:
                 if (new_y,new_x) in current_piece.generated_valid_move(previous_y, previous_x,fake_board):
                     #play move on fake board to verify it is valid
@@ -448,33 +447,29 @@ while 1:
                     if isinstance(current_piece, Rook):
                         current_piece.has_moved = True
                     is_check, king_color, piece_moves, piece_y_x = board.is_checked(fake_board)
+                    
                     #check if king is in check
                     if is_check:
-                        king_y, king_x = king_pos_dict[board.move_color]
-                        king_moves = fake_board[king_y][king_x].generated_valid_move(king_y, king_x, fake_board)
-                        #if the king that is checked has the same color and the piece that moved, then it's an invalid move
+                        print(f"{king_color} is in check!")
+                        #if the king that is checked has the same color and the piece that moved, then it's an invalid move 
                         if king_color == board.move_color:
                             #reset the board and continue
                             fake_board = [row[:] for row in actual_board]
                             continue
                         #check if it is checkmated
+                        board.move_color = move_color_dict[current_piece.color]
+                        king_y, king_x = king_pos_dict[board.move_color]
+                        king_moves = fake_board[king_y][king_x].generated_valid_move(king_y, king_x, fake_board)
                         if board.is_checkmated(king_color, piece_moves, king_moves, piece_y_x):
+                            
                             #play the moves on the actual board
                             actual_board[new_y][new_x] = current_piece
                             actual_board[previous_y][previous_x] = None
                             board.redraw_board()
                             print(f"{king_color} is checkmated")
-                            break
+                            sys.exit()
                     #play move on actual board
                     actual_board[new_y][new_x] = current_piece
                     actual_board[previous_y][previous_x] = None
-                    board.move_color = move_color_dict[current_piece.color]
                     board.redraw_board()
                     fake_board = [row[:] for row in actual_board]
-                    drag = False
-        elif drag and current_piece:
-            mouse_x, mouse_y = pygame.mouse.get_pos()
-            board.redraw_board()
-            screen.blit(current_piece.image, [mouse_x-50, mouse_y-50])
-
-        pygame.display.update()
